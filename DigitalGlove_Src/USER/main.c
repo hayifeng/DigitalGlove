@@ -7,7 +7,8 @@
 #include "TFT_demo.h"
 #include "adc.h"
 #include "dma.h"
-#include "usart.h"	 
+#include "usart.h"	
+
 
 //-------------------------------------UCOSII任务设置----------------------------------------------
 //START 任务
@@ -68,11 +69,13 @@ void ADC_Filter(void)
  {	
 	delay_init();	    	 //延时函数初始化	
   NVIC_Configuration();	 
+	uart_init(9600);
+	//while(HC05_Init() != 0);
 	LED_Init();		  	//初始化与LED连接的硬件接口
 	Lcd_Init();
 	Adc_Init();
 	MyDMA_Init(DMA1_Channel1,(u32)&ADC1->DR, (u32)&ADC_VALUES, ADC_CHLS*ADC_CNTS);	//初始化DMA
-	uart_init(9600);
+	
 	OSInit();   
  	OSTaskCreate(start_task,(void *)0,(OS_STK *)&START_TASK_STK[START_STK_SIZE-1],START_TASK_PRIO );//创建起始任务
 	OSStart();	

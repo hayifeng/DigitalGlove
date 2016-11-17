@@ -132,7 +132,7 @@ void mget_ms(unsigned long *time);
 unsigned short inv_row_2_scale(const signed char *row);
 unsigned short inv_orientation_matrix_to_scalar(const signed char *mtx);
 u8 run_self_test(void);
-u8 mpu_dmp_init(void);
+u8 mpu_dmp_init(void); 
 u8 mpu_dmp_get_data(float *pitch,float *roll,float *yaw);
 
 #endif  /* #ifndef _INV_MPU_H_ */
