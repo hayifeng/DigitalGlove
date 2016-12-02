@@ -2,13 +2,16 @@
 #include "delay.h"
 #include "sys.h"
 #include "includes.h"
+#include <stdio.h>
 #include "Lcd_Driver.h"
 #include "GUI.h"
 #include "TFT_demo.h"
 #include "adc.h"
 #include "dma.h"
 #include "usart.h"	
-
+#include "hc05.h"
+#include "mpu6050.h"
+#include "inv_mpu.h"
 
 //-------------------------------------UCOSII任务设置----------------------------------------------
 //START 任务
@@ -17,23 +20,37 @@
 OS_STK START_TASK_STK[START_STK_SIZE];				//任务堆栈	
 void start_task(void *pdata);									//任务函数
  			   
-//LED0任务
-#define LED0_TASK_PRIO   			    			7 
-#define LED0_STK_SIZE  		    					64
-OS_STK LED0_TASK_STK[LED0_STK_SIZE];
-void led0_task(void *pdata);
+//LED任务
+#define LED_TASK_PRIO   			    			9 
+#define LED_STK_SIZE  		    					64
+OS_STK LED_TASK_STK[LED_STK_SIZE];
+void led_task(void *pdata);
 
-//LED1任务
-#define LED1_TASK_PRIO       						6 
-#define LED1_STK_SIZE  									64
-OS_STK LED1_TASK_STK[LED1_STK_SIZE];
-void led1_task(void *pdata);
+//GUI任务
+#define GUI_TASK_PRIO       						8 
+#define GUI_STK_SIZE  									128
+OS_STK GUI_TASK_STK[GUI_STK_SIZE];
+void gui_task(void *pdata);
 
-//adc转换任务
-#define ADC_TASK_PRIO 									8
+//ADC转换任务
+#define ADC_TASK_PRIO 									6
 #define ADC_STK_SIZE										64
 OS_STK ADC_TASK_STK[ADC_STK_SIZE];
 void adc_task(void *pdata);
+
+//MPU6050任务
+#define MPU6050_TASK_PRIO								5
+#define MPU6050_STK_SIZE								128
+OS_STK MPU6050_TASK_STK[MPU6050_STK_SIZE];
+void mpu6050_task(void *pdata);
+
+//HC05任务
+#define HC05_TASK_PRIO									7
+#define HC05_STK_SIZE										64
+OS_STK HC05_TASK_STK[HC05_STK_SIZE];
+void hc05_task(void *pdata);
+
+
 //-------------------------------------UCOSII任务设置结束----------------------------------------------
 
 //-----------------------------------------全局变量----------------------------------------------------
@@ -42,7 +59,9 @@ void adc_task(void *pdata);
 #define ADC_CNTS 10 						//每个ADC通道取10次值
 u16 ADC_VALUES[ADC_CNTS][ADC_CHLS];			//存储ADC转换后M*N个数字量的数据
 u16 ADC_VALUES_AVER[ADC_CHLS];					//每个ADC通道的平均值
-
+float pitch, roll, yaw;
+short pitch_s, roll_s, yaw_s;
+short aacx, aacy, aacz;
 //---------------------------------------全局变量定义结束---------------------------------------------
 
 //ADC滤波
@@ -70,12 +89,12 @@ void ADC_Filter(void)
 	delay_init();	    	 //延时函数初始化	
   NVIC_Configuration();	 
 	uart_init(9600);
-	//while(HC05_Init() != 0);
 	LED_Init();		  	//初始化与LED连接的硬件接口
 	Lcd_Init();
 	Adc_Init();
 	MyDMA_Init(DMA1_Channel1,(u32)&ADC1->DR, (u32)&ADC_VALUES, ADC_CHLS*ADC_CNTS);	//初始化DMA
-	
+	while(MPU_Init() != 0) printf("mpu init error!");
+	while(mpu_dmp_init() != 0)printf("mpu dmp init error!");
 	OSInit();   
  	OSTaskCreate(start_task,(void *)0,(OS_STK *)&START_TASK_STK[START_STK_SIZE-1],START_TASK_PRIO );//创建起始任务
 	OSStart();	
@@ -85,28 +104,46 @@ void ADC_Filter(void)
 //开始任务
 void start_task(void *pdata)
 {
-    OS_CPU_SR cpu_sr=0;
+  OS_CPU_SR cpu_sr=0;
 	pdata = pdata; 
-  	OS_ENTER_CRITICAL();			//进入临界区(无法被中断打断)    
- 	OSTaskCreate(led0_task,(void *)0,(OS_STK*)&LED0_TASK_STK[LED0_STK_SIZE-1],LED0_TASK_PRIO);						   
- 	OSTaskCreate(led1_task,(void *)0,(OS_STK*)&LED1_TASK_STK[LED1_STK_SIZE-1],LED1_TASK_PRIO);	 				   
+  OS_ENTER_CRITICAL();			//进入临界区(无法被中断打断)    
+ 	OSTaskCreate(led_task,(void *)0,(OS_STK*)&LED_TASK_STK[LED_STK_SIZE-1],LED_TASK_PRIO);						   
+ 	OSTaskCreate(gui_task,(void *)0,(OS_STK*)&GUI_TASK_STK[GUI_STK_SIZE-1],GUI_TASK_PRIO);	 				   
 	OSTaskCreate(adc_task,(void *)0,(OS_STK*)&ADC_TASK_STK[ADC_STK_SIZE-1],ADC_TASK_PRIO);	 				   
+	OSTaskCreate(mpu6050_task,(void *)0,(OS_STK*)&MPU6050_TASK_STK[MPU6050_STK_SIZE-1],MPU6050_TASK_PRIO);	 				   
+	OSTaskCreate(hc05_task,(void *)0,(OS_STK*)&HC05_TASK_STK[HC05_STK_SIZE-1],HC05_TASK_PRIO);	 				   
 	OSTaskSuspend(START_TASK_PRIO);	//挂起起始任务.
 	OS_EXIT_CRITICAL();				//退出临界区(可以被中断打断)
 }
 
-//LED0任务
-void led0_task(void *pdata)
-{	 	
+//gui任务
+void gui_task(void *pdata)
+{	
+	char pitch_str[16];
+	char roll_str[16];
+	char yaw_str[16];
+	LCD_LED_SET;
+	Lcd_Clear(GRAY0);
+	Gui_DrawFont_GBK16(5,20,BLUE,GRAY0,"pitch:");
+	Gui_DrawFont_GBK16(5,40,BLUE,GRAY0," roll:");
+	Gui_DrawFont_GBK16(5,60,BLUE,GRAY0," yaw :");
 	while(1){
-		TFT_Test_Demo();
+		Gui_DrawFont_GBK16(70, 20, GRAY0, GRAY0, "          ");
+		Gui_DrawFont_GBK16(70, 40, GRAY0, GRAY0, "          ");
+		Gui_DrawFont_GBK16(70, 60, GRAY0, GRAY0, "          ");
+		
+		sprintf(pitch_str, "%+4d" , pitch_s);
+		sprintf(roll_str, "%+4d", roll_s);
+		sprintf(yaw_str, "%+4d", yaw_s);
+		Gui_DrawFont_GBK16(70, 20, RED, GRAY0, pitch_str);
+		Gui_DrawFont_GBK16(70, 40, RED, GRAY0, roll_str);
+		Gui_DrawFont_GBK16(70, 60, RED, GRAY0, yaw_str);
+		delay_ms(50);
 	}
-	
-	//OSTimeDly(60);
 }
 
-//LED1任务
-void led1_task(void *pdata)
+//LED任务
+void led_task(void *pdata)
 {	  
 	while(1)
 	{
@@ -114,7 +151,6 @@ void led1_task(void *pdata)
 		delay_ms(300);
 		LED=1;
 		delay_ms(300);
-		//OSTimeDly(30);
 	};
 }
 
@@ -123,10 +159,34 @@ void adc_task(void *pdata){
 	DMA_Cmd(DMA1_Channel1, ENABLE);				//使能DMA通道
 	while(1){
 		ADC_Filter();
-		printf("%d %d %d\n", ADC_VALUES_AVER[1], ADC_VALUES_AVER[3], ADC_VALUES_AVER[8]);
-		OSTimeDly(30);
+		//printf("%d %d %d\n", ADC_VALUES_AVER[1], ADC_VALUES_AVER[3], ADC_VALUES_AVER[8]);
+		delay_ms(10);
 	}
 }
 
+void mpu6050_task(void *pdata){
+	
+	while(1){
+		if(mpu_dmp_get_data(&pitch,&roll,&yaw)==0){
+			MPU_Get_Accelerometer(&aacx,&aacy,&aacz);
+			pitch_s = (short)pitch;
+			roll_s = (short)roll;
+			yaw_s = (short)yaw;
+			
+			//printf("pitch=%d roll=%d yaw=%d\n", pitch_s, roll_s, yaw_s);
+			//printf("AacX=%d AacY=%d AacZ=%d\n", aacx, aacy, aacz);
+			delay_ms(10);
+		}
+	}
+}
 
-
+void hc05_task(void *pdata){
+	
+	while(1){
+		HC05_Send_Data(aacx, aacy, aacz, pitch_s, roll_s, yaw_s, 
+										ADC_VALUES_AVER[0], ADC_VALUES_AVER[1], ADC_VALUES_AVER[2], 
+										ADC_VALUES_AVER[3], ADC_VALUES_AVER[4], ADC_VALUES_AVER[5],
+										ADC_VALUES_AVER[6], ADC_VALUES_AVER[7], ADC_VALUES_AVER[8]);
+		delay_ms(20);
+	}
+}
