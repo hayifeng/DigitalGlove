@@ -361,7 +361,7 @@
               <MiscControls></MiscControls>
               <Define>STM32F10X_HD,USE_STDPERIPH_DRIVER</Define>
               <Undefine></Undefine>
-              <IncludePath>..\HARDWARE\LED;..\SYSTEM\delay;..\SYSTEM\sys;..\SYSTEM\usart;..\USER;..\STM32F10x_FWLib\inc;..\CORE;..\UCOSII\CONFIG;..\UCOSII\CORE;..\UCOSII\PORT;..\STARTUP;..\HARDWARE\TFT;..\HARDWARE\ADC;..\HARDWARE\DMA;..\HARDWARE\MPU6050\eMPL;..\HARDWARE\MPU6050</IncludePath>
+              <IncludePath>..\HARDWARE\LED;..\SYSTEM\delay;..\SYSTEM\sys;..\SYSTEM\usart;..\USER;..\STM32F10x_FWLib\inc;..\CORE;..\UCOSII\CONFIG;..\UCOSII\CORE;..\UCOSII\PORT;..\STARTUP;..\HARDWARE\TFT;..\HARDWARE\ADC;..\HARDWARE\DMA;..\HARDWARE\MPU6050\eMPL;..\HARDWARE\MPU6050;..\HARDWARE\HC05</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -468,6 +468,11 @@
               <FileName>mpuiic.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\HARDWARE\MPU6050\mpuiic.c</FilePath>
+            </File>
+            <File>
+              <FileName>hc05.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\HC05\hc05.c</FilePath>
             </File>
           </Files>
         </Group>

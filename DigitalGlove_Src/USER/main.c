@@ -62,6 +62,7 @@ u16 ADC_VALUES_AVER[ADC_CHLS];					//每个ADC通道的平均值
 float pitch, roll, yaw;
 short pitch_s, roll_s, yaw_s;
 short aacx, aacy, aacz;
+short aacx_t, aacy_t, aacz_t;
 //---------------------------------------全局变量定义结束---------------------------------------------
 
 //ADC滤波
@@ -159,8 +160,8 @@ void adc_task(void *pdata){
 	DMA_Cmd(DMA1_Channel1, ENABLE);				//使能DMA通道
 	while(1){
 		ADC_Filter();
-		//printf("%d %d %d\n", ADC_VALUES_AVER[1], ADC_VALUES_AVER[3], ADC_VALUES_AVER[8]);
-		delay_ms(10);
+		//printf("%d %d %d %d\n", ADC_VALUES_AVER[0], ADC_VALUES_AVER[1], ADC_VALUES_AVER[2], ADC_VALUES_AVER[3] );
+		delay_ms(30);
 	}
 }
 
@@ -172,9 +173,11 @@ void mpu6050_task(void *pdata){
 			pitch_s = (short)pitch;
 			roll_s = (short)roll;
 			yaw_s = (short)yaw;
-			
+			aacx_t = aacx / 10 + 3276;
+			aacy_t = aacy / 10 + 3276;
+			aacz_t = aacz / 10 + 3276;
 			//printf("pitch=%d roll=%d yaw=%d\n", pitch_s, roll_s, yaw_s);
-			//printf("AacX=%d AacY=%d AacZ=%d\n", aacx, aacy, aacz);
+			//printf("AacX=%d AacY=%d AacZ=%d\n", aacx_t, aacy_t, aacz_t);
 			delay_ms(10);
 		}
 	}
@@ -183,7 +186,7 @@ void mpu6050_task(void *pdata){
 void hc05_task(void *pdata){
 	
 	while(1){
-		HC05_Send_Data(aacx, aacy, aacz, pitch_s, roll_s, yaw_s, 
+		HC05_Send_Data(aacx_t, aacy_t, aacz_t, pitch_s, roll_s, yaw_s, 
 										ADC_VALUES_AVER[0], ADC_VALUES_AVER[1], ADC_VALUES_AVER[2], 
 										ADC_VALUES_AVER[3], ADC_VALUES_AVER[4], ADC_VALUES_AVER[5],
 										ADC_VALUES_AVER[6], ADC_VALUES_AVER[7], ADC_VALUES_AVER[8]);
