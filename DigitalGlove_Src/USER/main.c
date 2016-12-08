@@ -33,7 +33,7 @@ OS_STK GUI_TASK_STK[GUI_STK_SIZE];
 void gui_task(void *pdata);
 
 //ADC转换任务
-#define ADC_TASK_PRIO 									6
+#define ADC_TASK_PRIO 									7
 #define ADC_STK_SIZE										64
 OS_STK ADC_TASK_STK[ADC_STK_SIZE];
 void adc_task(void *pdata);
@@ -45,7 +45,7 @@ OS_STK MPU6050_TASK_STK[MPU6050_STK_SIZE];
 void mpu6050_task(void *pdata);
 
 //HC05任务
-#define HC05_TASK_PRIO									7
+#define HC05_TASK_PRIO									6
 #define HC05_STK_SIZE										64
 OS_STK HC05_TASK_STK[HC05_STK_SIZE];
 void hc05_task(void *pdata);
@@ -89,7 +89,7 @@ void ADC_Filter(void)
  {	
 	delay_init();	    	 //延时函数初始化	
   NVIC_Configuration();	 
-	uart_init(9600);
+	uart_init(38400);
 	LED_Init();		  	//初始化与LED连接的硬件接口
 	Lcd_Init();
 	Adc_Init();
@@ -161,7 +161,7 @@ void adc_task(void *pdata){
 	while(1){
 		ADC_Filter();
 		//printf("%d %d %d %d\n", ADC_VALUES_AVER[0], ADC_VALUES_AVER[1], ADC_VALUES_AVER[2], ADC_VALUES_AVER[3] );
-		delay_ms(30);
+		delay_ms(15);
 	}
 }
 
@@ -190,6 +190,6 @@ void hc05_task(void *pdata){
 										ADC_VALUES_AVER[0], ADC_VALUES_AVER[1], ADC_VALUES_AVER[2], 
 										ADC_VALUES_AVER[3], ADC_VALUES_AVER[4], ADC_VALUES_AVER[5],
 										ADC_VALUES_AVER[6], ADC_VALUES_AVER[7], ADC_VALUES_AVER[8]);
-		delay_ms(20);
+		delay_ms(10);
 	}
 }
